@@ -8,6 +8,7 @@ class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _CameraScreenState createState() => _CameraScreenState();
 }
 
@@ -33,8 +34,11 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Future<void> _initializeCamera() async {
     final cameras = await availableCameras();
+    if (cameras.isEmpty) return;
+
+    final selectedCamera = cameras[_selectedCameraIndex];
     _cameraController = CameraController(
-      cameras[0],
+      selectedCamera,
       ResolutionPreset.medium,
       enableAudio: false,
     );
@@ -57,12 +61,11 @@ class _CameraScreenState extends State<CameraScreen> {
 
         if (faces.isNotEmpty && !_faceDetected) {
           _faceDetected = true;
-          await _captureImage();
+          await _cameraController.stopImageStream();
+          await _navigateToHomeScreen();
         }
       } catch (e) {
-        if (kDebugMode) {
-          print("Error detecting face: $e");
-        }
+        print("❌ خطأ أثناء تحليل الوجه: $e");
       }
 
       _isDetecting = false;
@@ -74,20 +77,44 @@ class _CameraScreenState extends State<CameraScreen> {
     for (var plane in image.planes) {
       buffer.putUint8List(plane.bytes);
     }
-    final bytes = buffer.done().buffer.asUint8List();
+    final Uint8List bytes = buffer.done().buffer.asUint8List();
 
     final Size imageSize = Size(image.width.toDouble(), image.height.toDouble());
-    const InputImageRotation imageRotation = InputImageRotation.rotation90deg;
-    const InputImageFormat imageFormat = InputImageFormat.nv21;
+    final InputImageRotation imageRotation = _getImageRotation();
 
+    // تحديث الكود ليكون متوافقًا مع التحديثات الجديدة
     final inputImageData = InputImageMetadata(
       size: imageSize,
       rotation: imageRotation,
-      format: imageFormat,
+      format: InputImageFormat.yuv_420_888,
       bytesPerRow: image.planes[0].bytesPerRow,
     );
 
     return InputImage.fromBytes(bytes: bytes, metadata: inputImageData);
+  }
+
+  InputImageRotation _getImageRotation() {
+    return _selectedCameraIndex == 1
+        ? InputImageRotation.rotation270deg
+        : InputImageRotation.rotation90deg;
+  }
+
+  Future<void> _navigateToHomeScreen() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const HomeScreen()),
+    );
+  }
+
+  void _switchCamera() async {
+    final cameras = await availableCameras();
+    _selectedCameraIndex = (_selectedCameraIndex + 1) % cameras.length;
+    await _cameraController.dispose();
+    setState(() => _isCameraInitialized = false);
+    _initializeCamera();
   }
 
   @override
@@ -112,13 +139,11 @@ class _CameraScreenState extends State<CameraScreen> {
                   ),
                 )
               : const Center(child: CircularProgressIndicator()),
-
-          // نص إرشادي
-          const Positioned(
-            top: 20,
-            child: Text(
-              "ضع وجهك داخل الدائرة",
-              style: TextStyle(color: Colors.white, fontSize: 18),
+          Positioned(
+            bottom: 20,
+            child: ElevatedButton(
+              onPressed: _switchCamera,
+              child: const Icon(Icons.switch_camera),
             ),
           ),
         ],
