@@ -8,7 +8,6 @@ class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _CameraScreenState createState() => _CameraScreenState();
 }
 
@@ -18,6 +17,7 @@ class _CameraScreenState extends State<CameraScreen> {
   bool _isDetecting = false;
   bool _isCameraInitialized = false;
   bool _faceDetected = false;
+  int _selectedCameraIndex = 0;
 
   @override
   void initState() {
@@ -90,24 +90,6 @@ class _CameraScreenState extends State<CameraScreen> {
     return InputImage.fromBytes(bytes: bytes, metadata: inputImageData);
   }
 
-  Future<void> _captureImage() async {
-    if (!_cameraController.value.isTakingPicture) {
-      try {
-        if (!mounted) return;
-
-        // الانتقال إلى الشاشة الرئيسية بعد التقاط الصورة
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-      } catch (e) {
-        if (kDebugMode) {
-          print("❌ خطأ أثناء التقاط الصورة: $e");
-        }
-      }
-    }
-  }
-
   @override
   void dispose() {
     _cameraController.dispose();
@@ -131,14 +113,6 @@ class _CameraScreenState extends State<CameraScreen> {
                 )
               : const Center(child: CircularProgressIndicator()),
 
-          // رسم الدائرة حول الوجه
-          Positioned(
-            child: CustomPaint(
-              size: const Size(300, 300),
-              painter: FaceFramePainter(),
-            ),
-          ),
-
           // نص إرشادي
           const Positioned(
             top: 20,
@@ -151,20 +125,4 @@ class _CameraScreenState extends State<CameraScreen> {
       ),
     );
   }
-}
-
-// رسم إطار دائري حول الوجه
-class FaceFramePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    canvas.drawCircle(size.center(Offset.zero), 120, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
